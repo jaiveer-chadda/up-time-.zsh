@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 
+# —— up() ——————————————————————————————————————————————————————————————————— #
 
 up() {
   local -r _default_cmd='pretty'
@@ -42,7 +43,7 @@ up() {
 
 }
 
-# ——————————————————————————————————————————————————————————————————————————— #
+# —— up::parse() ———————————————————————————————————————————————————————————— #
 
 up::parse() {
 
@@ -87,40 +88,40 @@ up::parse() {
     \s*$
   "
 
+  local -r NL=$'\n'
+
   # compile raw regex
-  _parser_regex="${_parser_regex// }"                # remove all spaces
-  _parser_regex="${(S)_parser_regex//$'\n#'*$'\n'}"  # remove all comments
-  _parser_regex="${_parser_regex//[[:space:]]}"      # remove all newlines
+  _parser_regex="${_parser_regex// }"             # remove all spaces
+  _parser_regex="${(S)_parser_regex//$NL\#*$NL}"  # remove all comments
+  _parser_regex="${_parser_regex//[[:space:]]}"   # remove all newlines
 
   local -ri 2 do_long=0
-  if [[ "$1" =~ '^(-l|--do-long)$' ]] do_long=1 && shift
-
-  local -r uptime_raw="$_UPTIME_OUTPUT"
+  if [[ "$1" == (-(-do-long|l)) ]] do_long=1 && shift
 
   # just try and match the uptime string
   # we don't care about what the result of the [[ ... ]] is,
   #  we just care about the content of the capturing groups
   setopt rematch_pcre
-  if ! [[ "$uptime_raw" =~ "$_parser_regex" ]] return 1
+  if ! [[ "$_UPTIME_OUTPUT" =~ "$_parser_regex" ]] return 1
 
   local -A output=(
-    [time]="${match[1]}"                  # current time
+    [time]="$match[1]"                    # current time
     [days]="${match[2]:-0}"               # days  up
    [hours]="${match[4]:-0}"               # hours up
     [mins]="${match[5]:-${match[3]:-0}}"  # mins  up
-   [users]="${match[6]}"                  # users on system
-    [1mla]="${match[7]}"                  # 1  min load average
-    [5mla]="${match[8]}"                  # 5  min load average
-   [15mla]="${match[9]}"                  # 15 min load average
+   [users]="$match[6]"                    # users on system
+    [1mla]="$match[7]"                    # 1  min load average
+    [5mla]="$match[8]"                    # 5  min load average
+   [15mla]="$match[9]"                    # 15 min load average
   )
 
   # strip the leading 0 from the days, hours and mins
-  local key; for key in days hours mins; output[$key]="${output[$key]/#0#}"
+  local key; for key (days hours mins) output[$key]="${output[$key]/#0#}"
 
   typeset -gA _PARSED_UP=( "${(@kv)output}" )
 }
 
-# ——————————————————————————————————————————————————————————————————————————— #
+# —— up::print_pretty() ————————————————————————————————————————————————————— #
 
 up::print_pretty() {
 
@@ -170,7 +171,7 @@ up::print_pretty() {
 
 }
 
-# ——————————————————————————————————————————————————————————————————————————— #
+# —— up::print_raw() ———————————————————————————————————————————————————————— #
 
 up::print_raw() {
   if [[ -z "$_PARSED_UP" ]] up::parse
@@ -182,7 +183,7 @@ up::print_raw() {
   echo "$days:$hours:$mins"
 }
 
-# ——————————————————————————————————————————————————————————————————————————— #
+# —— up::print_absolute() ——————————————————————————————————————————————————— #
 
 up::print_absolute() {
   if [[ -z "$_PARSED_UP" ]] up::parse
@@ -201,41 +202,3 @@ up::print_absolute() {
 }
 
 # ——————————————————————————————————————————————————————————————————————————— #
-
-# Example Outputs:
-# ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-# 14:42  up 9 days,  2:59, 2 users, load averages: 3.63 3.48 3.25   -> 09:02:59
-# 12:53  up  1:10, 3 users, load averages: 4.79 4.48 4.23           -> 00:01:10
-# 15:03  up 8 mins, 3 users, load averages: 3.51 12.43 10.72        -> 00:00:08
-# 16:44  up 10 days, 19:01, 3 users, load averages: 5.93 4.87 4.42  -> 10:19:01
-#  3:13  up 11 days, 15:30, 7 users, load averages: 3.34 3.99 4.39  -> 11:15:30
-#  3:13  up 6 days, 44 mins, 7 users, load averages: 3.34 3.99 4.39 -> 11:15:30
-#
-# __:__  up 9 days,  2:59, _ users, load averages: _.__ _.__ _.__  -> 09:02:59
-# __:__  up  1:10, _ users, load averages: _.__ _.__ _.__          -> 00:01:10
-# __:__  up 8 mins, _ users, load averages: _.__ __.__ __.__       -> 00:00:08
-# __:__  up 10 days, 19:01, _ users, load averages: _.__ _.__ _.__ -> 10:19:01
-#  _:__  up 11 days, 15:30, _ users, load averages: _.__ _.__ _.__ -> 11:15:30
-#
-# _____  __ 9 days_  2:59_ _ ______ ____ _________ ____ ____ ____  -> 09:02:59
-# _____  __  1:10_ _ ______ ____ _________ ____ ____ ____          -> 00:01:10
-# _____  __ 8 mins_ _ ______ ____ _________ ____ _____ _____       -> 00:00:08
-# _____  __ 10 days_ 19:01_ _ ______ ____ _________ ____ ____ ____ -> 10:19:01
-#  ____  __ 11 days_ 15:30_ _ ______ ____ _________ ____ ____ ____ -> 11:15:30
-#
-# 9 days, 2:59    -> 09:02:59
-# 1:10            -> 00:01:10
-# 8 mins          -> 00:00:08
-# 10 days, 19:01  -> 10:19:01
-# 11 days, 15:30  -> 11:15:30
-# 6 days, 44 mins -> 06:00:44
-
-# All Tests
-# ‾‾‾‾‾‾‾‾‾
-# 14:42  up 9 days,  2:59, 2 users, load averages: 3.63 3.48 3.25
-# 12:53  up  1:10, 3 users, load averages: 4.79 4.48 4.23
-# 15:03  up 8 mins, 3 users, load averages: 3.51 12.43 10.72
-# 16:44  up 10 days, 19:01, 3 users, load averages: 5.93 4.87 4.42
-#  3:13  up 11 days, 15:30, 7 users, load averages: 3.34 3.99 4.39
-#  3:13  up 6 days, 44 mins, 7 users, load averages: 3.34 3.99 4.39
-#  3:13  up 6 days, 3 hrs, 7 users, load averages: 3.34 3.99 4.39
