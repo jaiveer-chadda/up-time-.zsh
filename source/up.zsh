@@ -3,13 +3,22 @@
 # —— up() ——————————————————————————————————————————————————————————————————— #
 
 up() {
+  local -i 2 test_mode=0
+  if [[ "$1" == '--test' ]] test_mode=1 && shift
+
+  typeset -g _UPTIME_OUTPUT=
+
+  if (( test_mode )) {
+    _UPTIME_OUTPUT="$1"
+    if (( $# )) shift
+  }
+
   local -r _default_cmd='pretty'
   local -r command="${1:-$_default_cmd}"
   local -r error=$'up: \e[31mUnknown command:\e[0m '"'$command'"
   if (( $# )) shift
 
-  typeset -g _UPTIME_OUTPUT
-  _UPTIME_OUTPUT="$( uptime )" || return 2
+  if [[ -z "$_UPTIME_OUTPUT" ]] _UPTIME_OUTPUT="$( uptime )" || return 2
 
   up::parse || { echo "$_UPTIME_OUTPUT"; return 1; }
 
